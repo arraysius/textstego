@@ -19,7 +19,7 @@ def get_args():
 	parser = argparse.ArgumentParser(
 		usage='python %(prog)s [options]',
 		description='Text steganography by writing individual bits of secret message as bytes to text file',
-		epilog='GitHub: https://github.com/cyanoise'
+		epilog='GitHub: https://github.com/cyanoise/textstego'
 	)
 
 	# required argument
