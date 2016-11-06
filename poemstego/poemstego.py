@@ -8,7 +8,7 @@ def get_args():
 	parser = argparse.ArgumentParser(
 		usage='python %(prog)s [options]',
 		description='Text steganography by using Markov Chains to generate poem-like text',
-		epilog='GitHub: https://github.com/cyanoise'
+		epilog='GitHub: https://github.com/cyanoise/textstego'
 	)
 
 	parser.add_argument('-x', metavar='TEXT_FILE', required=False, help='extract hidden text')
