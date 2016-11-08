@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Special ASCII characters that don't take up character space
 
@@ -46,7 +47,7 @@ def hide(textfile, secretfile, outputfile):
 
 		# convert secret message into hidden bit bytes
 		for c in secret_message:
-			secret_bit_bytes += indiv_bits_to_bytes(str(bin(ord(c)))[2:].zfill(8))
+			secret_bit_bytes += indiv_bits_to_bytes(bin(ord(c))[2:].zfill(8))
 	else:
 		secret_file_bytes = read_bytes(secretfile)
 
