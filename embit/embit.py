@@ -11,6 +11,7 @@ However word wrap causes blank characters and lines to appear
 """
 
 import argparse
+import gzip
 
 # Special bytes to represent bits 0 and 1
 spec_bytes = (0x1c, 0x1d)
@@ -33,27 +34,31 @@ def get_args():
 
 	# optional arguments
 	parser.add_argument('-f', metavar='SECRET_FILE', required=False,
-						help='secret file to hide in text file, used with -e')
+						help='external secret file to hide in text file, used with -e')
+	parser.add_argument('-c', action='store_true', required=False,
+						help='compress data when hiding; decompress data when extracting (gzip)')
 	parser.add_argument('-o', metavar='OUTPUT', required=False, help='write to separate text file')
 	return parser.parse_args()
 
 
-def hide(textfile, secretfile, outputfile):
+def hide(textfile, secretfile, compress, outputfile):
 	secret_bit_bytes = bytearray()
 	secret_bit_bytes.append(0x20)
 
+	# handle user input or secret file
 	if secretfile is None:
-		secret_message = input('Enter your secret: ')
-
-		# convert secret message into hidden bit bytes
-		for c in secret_message:
-			secret_bit_bytes += indiv_bits_to_bytes(bin(ord(c))[2:].zfill(8))
+		secret_data = bytearray([ord(c) for c in input('Enter your message: ')])
 	else:
-		secret_file_bytes = read_bytes(secretfile)
+		secret_data = read_bytes(secretfile)
 
-		# convert secret file bytes into hidden bit bytes
-		for byte in secret_file_bytes:
-			secret_bit_bytes += indiv_bits_to_bytes(bin(byte)[2:].zfill(8))
+	if compress:
+		precompressed_size = len(secret_data)
+		secret_data = bytearray(gzip.compress(secret_data))
+		print('Compressed data size {}% of original'.format(round(len(secret_data) / precompressed_size * 100, 2)))
+
+	# convert individual bits to bytes
+	for byte in secret_data:
+		secret_bit_bytes += indiv_bits_to_bytes(bin(byte)[2:].zfill(8))
 
 	if outputfile is None:
 		write_out(textfile, 'a', secret_bit_bytes)
@@ -71,7 +76,7 @@ def indiv_bits_to_bytes(byte):
 	return b
 
 
-def extract(textfile, outputfile):
+def extract(textfile, decompress, outputfile):
 	# read text file
 	file_bytes = read_bytes(textfile)
 
@@ -88,9 +93,12 @@ def extract(textfile, outputfile):
 	for byte in [secret_bits[i:i + 8] for i in range(0, len(secret_bits), 8)]:
 		secret_bytes.append(int(byte, 2))
 
+	if decompress:
+		secret_bytes = bytearray(gzip.decompress(secret_bytes))
+
 	# print or write output
 	if outputfile is None:
-		print(str(secret_bytes)[11:-1])
+		print(str(secret_bytes)[12:-2])
 	else:
 		write_out(outputfile, 'w', secret_bytes)
 
@@ -103,6 +111,10 @@ def remove(textfile):
 	for byte in file_bytes:
 		if byte not in (0x1c, 0x1d):
 			new_file_bytes.append(byte)
+
+	# remove trailing space
+	if new_file_bytes[-1] == 0x20:
+		del new_file_bytes[-1]
 
 	# write bytes to file (overwrite)
 	with open(textfile, 'wb') as f:
@@ -122,8 +134,8 @@ def write_out(filename, write_type, message_bytes):
 if __name__ == '__main__':
 	args = get_args()
 	if args.e is not None:
-		hide(args.e, args.f, args.o)
+		hide(args.e, args.f, args.c, args.o)
 	elif args.x is not None:
-		extract(args.x, args.o)
+		extract(args.x, args.c, args.o)
 	else:
 		remove(args.r)
