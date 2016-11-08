@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import argparse
 from string import ascii_letters
 
