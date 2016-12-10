@@ -1,20 +1,28 @@
 #!/usr/bin/python3
 """
-Special ASCII characters that don't take up character space
+Embit.py
 
-1C - FS (file separator)
-1D - GS (group separator)
-1E - RS (record separator)
-1F - US (unit separator)
+Invisible ASCII characters
 
-However word wrap causes blank characters and lines to appear
+0x1C : FS (file separator)
+0x1D : GS (group separator)
+0x1E : RS (record separator)
+0x1F : US (unit separator)
+
+Word wrap still causes invisible characters and lines to appear in some cases
+
+Bits representation, two bits to be encoded as a byte
+0x1C -> 00
+0x1D -> 01
+0x1E -> 10
+0x1F -> 11
 """
 
 import argparse
 import gzip
 
-# Special bytes to represent bits 0 and 1
-spec_bytes = (0x1c, 0x1d)
+# Special bytes to represent bits 00 to 11
+spec_bytes = {'00': 0x1C, '01': 0x1D, '10': 0x1E, '11': 0x1F}
 
 
 def get_args():
@@ -28,13 +36,13 @@ def get_args():
 	required_args = parser.add_argument_group('required arguments')
 	group = required_args.add_mutually_exclusive_group(required=True)
 	group.add_argument('-e', metavar='TEXT_FILE',
-					   help='embed data into text file, will append bytes to file if -o is absent')
-	group.add_argument('-x', metavar='TEXT_FILE', help='extract hidden data from text file')
-	group.add_argument('-r', metavar='TEXT_FILE', help='remove hidden data in text file')
+					   help='embed data into text file, will modify specified text file if -o is absent')
+	group.add_argument('-x', metavar='TEXT_FILE', help='extract hidden data from specified text file')
+	group.add_argument('-r', metavar='TEXT_FILE', help='remove hidden data in specified text file')
 
 	# optional arguments
 	parser.add_argument('-f', metavar='SECRET_FILE', required=False,
-						help='external secret file to hide in text file, used with -e')
+						help='external secret file to hide, used with -e')
 	parser.add_argument('-c', action='store_true', required=False,
 						help='compress data when hiding; decompress data when extracting (gzip)')
 	parser.add_argument('-o', metavar='OUTPUT', required=False, help='write to separate text file')
@@ -54,7 +62,7 @@ def hide(textfile, secretfile, compress, outputfile):
 	if compress:
 		precompressed_size = len(secret_data)
 		secret_data = bytearray(gzip.compress(secret_data))
-		print('Compressed data size {}% of original'.format(round(len(secret_data) / precompressed_size * 100, 2)))
+		print('Compressed data {}% of original size'.format(round(len(secret_data) / precompressed_size * 100, 2)))
 
 	# convert individual bits to bytes
 	for byte in secret_data:
@@ -68,11 +76,9 @@ def hide(textfile, secretfile, compress, outputfile):
 
 def indiv_bits_to_bytes(byte):
 	b = bytearray()
-	for bit in byte:
-		if bit == '0':
-			b.append(spec_bytes[0])
-		elif bit == '1':
-			b.append(spec_bytes[1])
+	split_by = 2
+	for duobits in [byte[i:i + split_by] for i in range(0, len(byte), split_by)]:
+		b.append(spec_bytes[duobits])
 	return b
 
 
@@ -80,13 +86,14 @@ def extract(textfile, decompress, outputfile):
 	# read text file
 	file_bytes = read_bytes(textfile)
 
-	# find hidden bit bytes
+	# find special bytes
 	secret_bits = ''
 	for byte in file_bytes:
-		if byte == spec_bytes[0]:
-			secret_bits += '0'
-		elif byte == spec_bytes[1]:
-			secret_bits += '1'
+		if byte in spec_bytes.values():
+			for key in spec_bytes.keys():
+				if byte == spec_bytes[key]:
+					secret_bits += key
+					break
 
 	# convert secret bits into bytes
 	secret_bytes = bytearray()
@@ -109,7 +116,7 @@ def remove(textfile):
 
 	# remove bytes 0x1c and 0x1d
 	for byte in file_bytes:
-		if byte not in (0x1c, 0x1d):
+		if byte not in spec_bytes.values():
 			new_file_bytes.append(byte)
 
 	# remove trailing space
