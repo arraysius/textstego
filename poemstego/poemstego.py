@@ -12,8 +12,10 @@ def get_args():
 		epilog='GitHub: https://github.com/cyanoise/textstego'
 	)
 
+	parser.add_argument('-s', action='store_true', required=False, help='preserve spaces')
 	parser.add_argument('-x', metavar='TEXT_FILE', required=False, help='extract hidden text')
 	parser.add_argument('-o', metavar='OUTPUT', required=False, help='write output to text file')
+
 	return parser.parse_args()
 
 
@@ -22,7 +24,7 @@ def return_text(filename):
 		return f.read()
 
 
-def generate_poem(text):
+def generate_poem(text, preserve_space=False):
 	# Build the models
 	model_chicago = markovify.Text(return_text('training_text/chicago-poems.txt'))
 	model_simple = markovify.Text(return_text('training_text/simplepoems.txt'))
@@ -30,11 +32,21 @@ def generate_poem(text):
 
 	lines = []
 
-	for c in list(' ,.1234567890-=!@#$%^&*()_+<>?:;/\'\"\\[]{}|`~'):
+	filter_set = ',.1234567890-=!@#$%^&*()_+<>?:;/\'\"\\[]{}|`~'
+	if not preserve_space:
+		filter_set += ' '
+
+	for c in list(filter_set):
 		if c in text:
 			text = text.replace(c, '')
 
 	for c in text:
+		# If character is a space
+		if c == ' ':
+			lines.append('')
+			continue
+
+		# Generate sentence
 		while True:
 			sentence = model_combo.make_short_sentence(140)
 
@@ -53,15 +65,16 @@ def generate_poem(text):
 			if sentence[0] in (c, c.swapcase()) and sentence not in lines:
 				lines.append(sentence.strip(' .-'))
 				break
+
 	return '\n'.join(lines)
 
 
-def hide(output):
+def hide(output, preserve_space):
 	# Get input from user
 	message = input('Enter your message: ')
 	print()
 
-	poem = generate_poem(message)
+	poem = generate_poem(message, preserve_space)
 
 	if output is not None:
 		write_output(output, poem)
@@ -73,7 +86,7 @@ def extract(filename, output):
 	with open(filename, 'r') as f:
 		lines = f.readlines()
 
-	secret_message = ''.join([line[0] for line in lines])
+	secret_message = ''.join([' ' if line[0] == '\n' else line[0] for line in lines])
 	if output is None:
 		print(secret_message)
 	else:
@@ -89,6 +102,6 @@ if __name__ == '__main__':
 	args = get_args()
 
 	if args.x is None:
-		hide(args.o)
+		hide(args.o, args.s)
 	else:
 		extract(args.x, args.o)
